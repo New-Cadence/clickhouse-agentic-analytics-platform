@@ -1,13 +1,13 @@
 A platform for agentic analytics against ClickHouse. Point it at your data, give it a schema, and ask questions in plain language — a model writes the SQL, runs it against ClickHouse, and shows you its reasoning, the queries it issued, and the rows that came back. It ships with 92 example scenarios across four industries so you can see the shape of it before pointing it at anything of your own.
 
-By [Benjamin Wootton](https://benjaminwootton.com).
+By [New Cadence](https://newcadence.io).
 
 ## Running
 
 Clone the repository and create your config:
 
 ```bash
-git clone https://github.com/benjaminwootton/clickhouse-agentic-analytics-platform
+git clone https://github.com/New-Cadence/clickhouse-agentic-analytics-platform
 cd clickhouse-agentic-analytics-platform
 cp .env.example .env
 ```
@@ -108,4 +108,4 @@ cd server && npm install && npm start
 
 ### Next Steps
 
-Please visit https://benjaminwootton.com for more details on the project and my ClickHouse consulting services.
+Please visit https://newcadence.io for more details on the project and our ClickHouse consulting services.
