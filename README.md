@@ -1,4 +1,4 @@
-A platform for agentic analytics against ClickHouse. Point it at your data, give it a schema, and ask questions in plain language — a model writes the SQL, runs it against ClickHouse, and shows you its reasoning, the queries it issued, and the rows that came back. It ships with 92 example scenarios across four industries so you can see the shape of it before pointing it at anything of your own.
+Agentic Analytics Platform is a tool for building and testing AI analytics agents on ClickHouse.  Ask questions in plain language and a model writes the SQL, runs it against ClickHouse and shows its reasoning, the queries it issued and the rows that came back, with 92 example scenarios across four industries to try straight away.
 
 By [New Cadence](https://newcadence.io).
 
@@ -12,9 +12,31 @@ cd clickhouse-agentic-analytics-platform
 cp .env.example .env
 ```
 
-`.env.example` is set up for a ClickHouse running locally on port 8123 over plain HTTP, so if that is what you have, it works unedited. It is commented throughout, including how to reach a ClickHouse on your own machine from inside the container and what to do when that connection times out.
+Edit `.env` with your connection details. `.env.example` targets a ClickHouse running locally on port 8123 over plain HTTP, so it works unedited if that is what you have. For ClickHouse Cloud or any remote instance:
 
-ClickHouse is the one thing the app requires — it refuses to start if `CLICKHOUSE_URL` is unset or malformed, and names what is missing rather than failing later with a confusing error. Model providers are optional at boot and can be added from the admin UI.
+```bash
+CLICKHOUSE_URL=https://your-instance.clickhouse.cloud:8443
+CLICKHOUSE_USER=default
+CLICKHOUSE_PASSWORD=your-password
+```
+
+ClickHouse is the only thing the app requires. It refuses to start if `CLICKHOUSE_URL` is unset or malformed, and names what is missing. Model providers are optional at boot and can be added from the admin UI. To reach a ClickHouse on your own machine, use `host.docker.internal` rather than `localhost`: inside the container `localhost` is the container itself. Use `localhost` only when running outside Docker.
+
+<details>
+<summary><strong>Connecting to a ClickHouse on your own machine (Linux)</strong></summary>
+
+Docker Desktop provides `host.docker.internal` out of the box. On Linux, `docker-compose.yml` maps it to the default bridge gateway (usually `172.17.0.1`) via `extra_hosts`. Two host-side settings commonly block the connection anyway:
+
+- **Connection timeout to `172.17.0.1:8123`** — a distro-packaged ClickHouse listens on loopback only. Uncomment `<listen_host>::</listen_host>` in `/etc/clickhouse-server/config.xml` and restart the server. Confirm with `ss -tlnp | grep 8123`, which should show `*:8123` rather than `127.0.0.1:8123`.
+- **Still timing out with the listener open** — a host firewall is dropping bridge traffic. For ufw:
+
+  ```bash
+  sudo ufw allow proto tcp from 172.16.0.0/12 to 172.17.0.1 port 8123
+  ```
+
+Both open ClickHouse to local containers, so weigh that against how the machine is used.
+
+</details>
 
 Start with Docker Compose:
 
@@ -26,7 +48,7 @@ Access the UI at http://localhost:3000.
 
 ## Model providers
 
-Any OpenAI-compatible endpoint works — the app talks to providers through the OpenAI SDK and only needs a base URL, a model id, and an API key. That covers Fireworks, Baseten, Together, Groq, OpenRouter, OpenAI itself, and anything you self-host behind vLLM, Ollama, or llama.cpp.
+Any OpenAI-compatible endpoint works: Fireworks, Baseten, Together, Groq, OpenRouter, OpenAI itself, or anything you self-host behind vLLM, Ollama or llama.cpp. A provider needs a base URL, a model id and an API key. The key is optional, which is what makes unauthenticated local endpoints work.
 
 Configure up to five providers in `.env` with the `PROVIDER_1_` through `PROVIDER_5_` prefixes:
 
@@ -37,19 +59,17 @@ PROVIDER_1_BASE_URL=https://api.fireworks.ai/inference/v1
 PROVIDER_1_MODEL=accounts/fireworks/models/deepseek-v4-pro
 ```
 
-Providers from `.env` are copied into the local database on first boot. After that they are managed from **Site Administration → Providers**, where you can add, edit, and remove them without restarting. Every configured provider appears in a picker on the agent page, so you can put the same question to several models and compare how they reason and what SQL they write.
-
-An API key is optional, which is what makes unauthenticated local endpoints work.
+Providers from `.env` are copied into the local database on first boot. After that they are managed from **Site Administration → Providers**, where you can add, edit and remove them without restarting. Every configured provider appears in a picker on the agent page, so you can put the same question to several models and compare the SQL they write.
 
 ## Agents
 
-An agent is a ClickHouse schema, a system prompt, and a set of suggested questions. Ask one a question and the answer streams back as it happens — the model's reasoning, the `query_clickhouse` tool calls it makes, the SQL it wrote, and the rows that came back, followed by its interpretation. Seeing the SQL matters: it is the difference between trusting an answer and checking one.
+An agent is a ClickHouse schema, a system prompt and a set of suggested questions. Ask one a question and the answer streams back as it happens: the model's reasoning, the `query_clickhouse` tool calls, the SQL, the rows returned and finally its interpretation.
 
 Build your own from **Site Administration → Agents** by supplying a schema and, optionally, sample data. Custom agents behave exactly like the bundled ones.
 
 ## Example scenarios
 
-The bundled scenarios live in [`server/seed-builtins.json`](server/seed-builtins.json) — a single JSON array where each entry is one agent:
+The bundled scenarios live in [`server/seed-builtins.json`](server/seed-builtins.json), a single JSON array where each entry is one agent:
 
 ```json
 {
@@ -67,9 +87,9 @@ The bundled scenarios live in [`server/seed-builtins.json`](server/seed-builtins
 }
 ```
 
-On first boot the file is read and any agent whose `id` is not already in the local database is inserted, so adding an entry and restarting picks it up without disturbing anything already there. Editing an existing entry does not overwrite what is already stored — change those from the admin UI.
+On first boot, any agent whose `id` is not already in the local database is inserted, so adding an entry and restarting picks it up. Editing an existing entry does not overwrite what is stored; change those from the admin UI.
 
-`schema` and `sampleData` are ordinary ClickHouse SQL. Deploy a scenario from its page and the app creates the database and runs both, which takes a few seconds and turns a catalogue entry into something you can genuinely interrogate. All the data is synthetic; none of it points at anything real.
+`schema` and `sampleData` are ordinary ClickHouse SQL. Deploy a scenario from its page and the app creates the database and runs both. All the data is synthetic.
 
 The bundled set covers 92 agents across 25 sectors and four industries:
 
@@ -82,7 +102,7 @@ The bundled set covers 92 agents across 25 sectors and four industries:
 
 ## Observability
 
-Set Langfuse credentials to trace every conversation — prompts, completions, tool calls, latency, and token counts:
+Set Langfuse credentials to trace every conversation, including prompts, completions, tool calls, latency and token counts:
 
 ```bash
 LANGFUSE_PUBLIC_KEY=pk-lf-...
@@ -92,13 +112,13 @@ LANGFUSE_HOST=
 
 Leave `LANGFUSE_HOST` empty for Langfuse Cloud, or point it at a self-hosted instance. Tracing stays off until both keys are present, and can also be configured from **Site Administration → Observability**.
 
-## How it works
+## Architecture
 
 - **Backend** — Node.js and Express (`server/server.js`), streaming responses over SSE
 - **LLM** — any OpenAI-compatible provider, with streaming tool use
 - **Database** — ClickHouse, Cloud or self-hosted, over HTTP
-- **State** — SQLite at `server/data.sqlite` for providers, agents, and settings
-- **Frontend** — static HTML, CSS, and JavaScript served from `website/`
+- **State** — SQLite at `server/data.sqlite` for providers, agents and settings
+- **Frontend** — static HTML, CSS and JavaScript served from `website/`
 
 To run it directly rather than in Docker:
 
@@ -106,6 +126,6 @@ To run it directly rather than in Docker:
 cd server && npm install && npm start
 ```
 
-### Next Steps
+## Next Steps
 
 Please visit https://newcadence.io for more details on the project and our ClickHouse consulting services.
