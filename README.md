@@ -123,8 +123,10 @@ Leave `LANGFUSE_HOST` empty for Langfuse Cloud, or point it at a self-hosted ins
 To run it directly rather than in Docker:
 
 ```bash
-cd server && npm install && npm start
+npm install && npm start
 ```
+
+Then open http://localhost:8000. Use `npm run dev` instead of `npm start` to restart on file changes.
 
 ## Next Steps
 
